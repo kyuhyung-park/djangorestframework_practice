@@ -1,4 +1,4 @@
-# Django Django-rest-framework file upload download sample
+# Django-rest-framework Practice Project
 
 ## Project Start
 ```
