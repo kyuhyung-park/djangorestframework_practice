@@ -1,0 +1,4 @@
+*.pyc
+/virtualenv
+/tutorial/db.sqlite3
+
