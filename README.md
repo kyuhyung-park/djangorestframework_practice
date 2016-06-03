@@ -82,5 +82,39 @@ command
 
 여기까지 진행하면 사이트에 접속해서 작동하는 모습을 볼 수 있다.
 
-##
+### 참고 링크
 - http://www.django-rest-framework.org/tutorial/quickstart/
+
+## 업로드 테스트
+command
+```
+(virtualenv) tutorial>pip install requests
+```
+
+functional_tests/test_image.png
+functional_tests/tests_upload.py
+```
+from django.test import LiveServerTestCase
+import requests
+
+class UploadTest(LiveServerTestCase):
+    def test_upload(self):
+        file = open('functional_tests/test_image.png','rb')
+        files = [
+            ('imagefile', ('test_image.png', file, 'image/png'))
+        ]
+        r = requests.post(self.live_server_url + '/imageuploads/', 
+            data={
+                'title':'Test Image'
+            }, 
+            files=files
+        )
+        file.close()
+        self.assertEqual(201, r.status_code)  # created
+```
+command
+```
+(virtualenv) tutorial>python manage.py test functional_tests
+```
+테스트 실행하면 업로드된 파일이 tutorial 폴더에 저장된것을 확인할 수 있다.
+
