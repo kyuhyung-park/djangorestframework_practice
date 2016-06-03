@@ -156,3 +156,62 @@ command
 ```
 테스트를 돌려 확인해 봅니다.
 
+## 다운로드 구현
+
+serializers.py
+```
+class ImageUploadSerializer(serializers.HyperlinkedModelSerializer):
+    imagefile_url = serializers.HyperlinkedIdentityField(view_name='imageupload-imagefile', read_only=True)
+    
+    class Meta:
+        model = ImageUpload
+        fields = ('url', 'pk', 'title', 'imagefile', 'imagefile_url')
+```
+views.py
+```
+from rest_framework.decorators import detail_route
+from django.http import FileResponse
+
+class ImageUploadViewSet(viewsets.ModelViewSet):
+    queryset = ImageUpload.objects.all()
+    serializer_class = ImageUploadSerializer
+    
+    @detail_route(methods=['get'])
+    def imagefile(self, request, pk=None):
+        r = self.get_object()
+        # 확장자 추출
+        ext = '*'
+        if r.imagefile.path:
+            ext = r.imagefile.path.split('.')[-1]
+        content_type = 'image/' + ext
+        # 다운로드용 Response 반환
+        response = FileResponse(open(r.imagefile.path, 'rb'), content_type=content_type)
+        return response
+```
+tests_upload.py
+test_upload 메소드 명을 test_upload_download 로 바꿈.
+아래 내용 추가
+```
+import shutil
+import filecmp
+
+        # 파일의 마지막 부분을 아래와 같이 수정
+        # --------------------------------
+        # 다운로드 경로를 알아내고 요청을 보낸다.
+        imagefile_url = r.json()['imagefile_url']
+        r = requests.get(imagefile_url, stream=True)
+        # 다운로드한 파일을 저장한다.
+        with open('functional_tests/download.png', 'wb') as out_file:
+            shutil.copyfileobj(r.raw, out_file)
+        # 업로드 한 파일과 다운로드 한 파일이 같은지 비교한다.
+        self.assertTrue(filecmp.cmp('functional_tests/test_image.png', 'functional_tests/download.png'))
+
+        # 다운로드한 파일을 삭제한다.
+        os.remove('functional_tests/download.png')
+        # --------------------------------
+        
+        # 업로드된 파일을 지운다.
+        imagefilepath = imagefile.__str__().replace(self.live_server_url + '/imageuploads/','')
+        imagefile_realpath = os.path.abspath(os.path.join(MEDIA_ROOT, imagefilepath))
+        os.remove(imagefile_realpath)
+```

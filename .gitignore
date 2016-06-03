@@ -2,4 +2,5 @@
 /virtualenv
 /tutorial/db.sqlite3
 /tutorial/quickstart/migrations
+/uploadfiles
 
