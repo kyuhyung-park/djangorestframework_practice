@@ -91,7 +91,8 @@ command
 (virtualenv) tutorial>pip install requests
 ```
 
-functional_tests/test_image.png
+functional_tests/test_image.png 준비
+
 functional_tests/tests_upload.py
 ```
 from django.test import LiveServerTestCase
@@ -117,4 +118,7 @@ command
 (virtualenv) tutorial>python manage.py test functional_tests
 ```
 테스트 실행하면 업로드된 파일이 tutorial 폴더에 저장된것을 확인할 수 있다.
+
+git tag upload_test
+
 
