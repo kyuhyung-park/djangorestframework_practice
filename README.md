@@ -104,10 +104,10 @@ class UploadTest(LiveServerTestCase):
         files = [
             ('imagefile', ('test_image.png', file, 'image/png'))
         ]
-        r = requests.post(self.live_server_url + '/imageuploads/', 
+        r = requests.post(self.live_server_url + '/imageuploads/',
             data={
                 'title':'Test Image'
-            }, 
+            },
             files=files
         )
         file.close()
@@ -128,7 +128,7 @@ MEDIA_ROOT = os.path.abspath(os.path.join(BASE_DIR, '../uploadfiles'))
 ```
 업로드 되는 파일이 프로젝트 루트 기준으로 /uploadfiles 가 됩니다.
 
-models.py 에서 imagefile 에 upload_to 를 추가합니다. 
+models.py 에서 imagefile 에 upload_to 를 추가합니다.
 ```
 imagefile = models.FileField(upload_to='imagefile/%Y/%m/%d', null=True)
 ```
@@ -162,7 +162,7 @@ serializers.py
 ```
 class ImageUploadSerializer(serializers.HyperlinkedModelSerializer):
     imagefile_url = serializers.HyperlinkedIdentityField(view_name='imageupload-imagefile', read_only=True)
-    
+
     class Meta:
         model = ImageUpload
         fields = ('url', 'pk', 'title', 'imagefile', 'imagefile_url')
@@ -175,7 +175,7 @@ from django.http import FileResponse
 class ImageUploadViewSet(viewsets.ModelViewSet):
     queryset = ImageUpload.objects.all()
     serializer_class = ImageUploadSerializer
-    
+
     @detail_route(methods=['get'])
     def imagefile(self, request, pk=None):
         r = self.get_object()
@@ -209,9 +209,75 @@ import filecmp
         # 다운로드한 파일을 삭제한다.
         os.remove('functional_tests/download.png')
         # --------------------------------
-        
+
         # 업로드된 파일을 지운다.
         imagefilepath = imagefile.__str__().replace(self.live_server_url + '/imageuploads/','')
         imagefile_realpath = os.path.abspath(os.path.join(MEDIA_ROOT, imagefilepath))
         os.remove(imagefile_realpath)
+```
+
+## 파일만 별도로 업로드 하는 기능 구현
+functional_tests/tests_upload.py
+- 우선 기존테스트를 복사해서 test_upload_file 로 테스트를 하나 만든다.
+- title만 먼저 등록하고
+- /imageuploads/{pk}/upload 로 파일만 전송하도록 수정한다.
+- 업로드한 파일을 지우고
+- 파일없이 요청하면 400 코드를 반환하게 한다.
+```
+  def test_upload_file(self):
+    # title 만 입력하여 추가한다.
+    r = requests.post(self.live_server_url + '/imageuploads/',
+        data={
+            'title':'Test Image'
+        }
+    )
+    self.assertEqual(201, r.status_code)  # created
+    url = r.json()['url']
+
+    # /imageuploads/{pk}/upload 로 파일을 전송한다.
+    file = open('functional_tests/test_image.png','rb')
+    files = [
+        ('imagefile', ('test_image.png', file, 'image/png'))
+    ]
+    r = requests.post(url + 'upload/',
+        files=files
+    )
+    file.close()
+    self.assertEqual(200, r.status_code)
+    self.assertEqual('upload success', r.json()['status'])
+
+    # 업로드된 파일을 지운다.
+    r = requests.get(url)
+    imagefile = r.json()['imagefile']
+    imagefilepath = imagefile.__str__().replace(url,'')
+    imagefile_realpath = os.path.abspath(os.path.join(MEDIA_ROOT, imagefilepath))
+    os.remove(imagefile_realpath)
+
+    # 파일없이 요청하면 400 코드를 반환한다.
+    r = requests.post(url + 'upload/')
+    self.assertEqual(400, r.status_code)
+    self.assertEqual('no file', r.json()['status'])
+```
+
+views.py
+- request.data 에서 첫번째 키 값을 찾고
+- 키 값이 있으면 저장해주고
+- 없으면 400 코드를 반환한다.
+```
+from rest_framework.response import Response
+from rest_framework import status
+
+  @detail_route(methods=['post'])
+  def upload(self, request, pk=None):
+    key = None
+    for k in request.data:
+      key = k
+      break
+    if key:
+      r = self.get_object()
+      r.imagefile = request.data[key]
+      r.save()
+      return Response({'status': 'upload success'})
+    else:
+      return Response({'status': 'no file'}, status=status.HTTP_400_BAD_REQUEST)
 ```
