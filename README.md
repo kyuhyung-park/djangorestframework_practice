@@ -121,4 +121,38 @@ command
 
 git tag upload_test
 
+## 업로드시 파일 저장위치 변경
+settings.py 에 다음을 추가합니다.
+```
+MEDIA_ROOT = os.path.abspath(os.path.join(BASE_DIR, '../uploadfiles'))
+```
+업로드 되는 파일이 프로젝트 루트 기준으로 /uploadfiles 가 됩니다.
+
+models.py 에서 imagefile 에 upload_to 를 추가합니다. 
+```
+imagefile = models.FileField(upload_to='imagefile/%Y/%m/%d', null=True)
+```
+이 필드로 인해 업로드되는 파일은 /uploadfiles/imagefile/2016/06/02 형태가 됩니다.
+
+functional_tests/tests_upload.py
+```
+from tutorial.settings import MEDIA_ROOT
+import os
+
+class UploadTest(LiveServerTestCase):
+    def test_upload(self):
+        # 기존 코드 이후에 추가
+        imagefile = r.json()['imagefile']
+        imagefilepath = imagefile.__str__().replace(self.live_server_url + '/imageuploads/','')
+        imagefile_realpath = os.path.abspath(os.path.join(MEDIA_ROOT, imagefilepath))
+        os.remove(imagefile_realpath)
+```
+업로드된 파일을 지우는 코드입니다.
+파일이 없을 경우 os.remove(imagefile_realpath) 에서 에러가 발생합니다.
+
+command
+```
+(virtualenv) tutorial>python manage.py test functional_tests
+```
+테스트를 돌려 확인해 봅니다.
 
